@@ -1,0 +1,202 @@
+"use client"
+
+import { useState } from "react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+import { Building2, Home, MapPin, Ruler } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useToast } from "@/components/ui/use-toast"
+import PriceResults from "./price-results"
+
+const formSchema = z.object({
+  squareFeet: z.coerce.number().min(100, "Must be at least 100 sq ft").max(10000, "Must be less than 10,000 sq ft"),
+  bedrooms: z.string().min(1, "Please select number of bedrooms"),
+  bathrooms: z.string().min(1, "Please select number of bathrooms"),
+  location: z.string().min(1, "Please select a location"),
+})
+
+const locations = [
+  { id: "nyc", name: "New York City", avgPrice: 1200000 },
+  { id: "sf", name: "San Francisco", avgPrice: 1500000 },
+  { id: "la", name: "Los Angeles", avgPrice: 950000 },
+  { id: "chi", name: "Chicago", avgPrice: 450000 },
+  { id: "mia", name: "Miami", avgPrice: 550000 },
+  { id: "aus", name: "Austin", avgPrice: 650000 },
+]
+
+export default function PricePredictorForm() {
+  const { toast } = useToast()
+  const [prediction, setPrediction] = useState<{ price: number; location: string } | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      squareFeet: undefined,
+      bedrooms: "",
+      bathrooms: "",
+      location: "",
+    },
+  })
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true)
+
+    // Simulate API call with a delay
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    // Simple price calculation formula (this would be replaced by a real ML model in production)
+    const basePrice = locations.find((loc) => loc.id === values.location)?.avgPrice || 500000
+    const bedroomFactor = Number.parseInt(values.bedrooms) * 25000
+    const bathroomFactor = Number.parseInt(values.bathrooms) * 15000
+    const sqftFactor = values.squareFeet * 250
+
+    const estimatedPrice = basePrice + bedroomFactor + bathroomFactor + sqftFactor
+
+    // Add some randomness to make it look more realistic
+    const finalPrice = Math.round(estimatedPrice * (0.9 + Math.random() * 0.2))
+
+    setPrediction({
+      price: finalPrice,
+      location: locations.find((loc) => loc.id === values.location)?.name || "",
+    })
+
+    toast({
+      title: "Prediction Complete",
+      description: "Your house price prediction is ready!",
+    })
+
+    setIsLoading(false)
+  }
+
+  return (
+    <div className="grid gap-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>Property Details</CardTitle>
+          <CardDescription>Enter the details of the property to get an estimated price</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="grid gap-6 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="squareFeet"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Total Square Feet</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Ruler className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input type="number" placeholder="e.g. 1500" className="pl-10" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormDescription>Total living area in square feet</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <div className="relative">
+                            <SelectTrigger className="pl-10">
+                              <SelectValue placeholder="Select location" />
+                            </SelectTrigger>
+                            <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </FormControl>
+                        <SelectContent>
+                          {locations.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {location.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>City or metropolitan area</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="bedrooms"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bedrooms</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <div className="relative">
+                            <SelectTrigger className="pl-10">
+                              <SelectValue placeholder="Select bedrooms" />
+                            </SelectTrigger>
+                            <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </FormControl>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5].map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              {num} {num === 1 ? "Bedroom" : "Bedrooms"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Number of bedrooms</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="bathrooms"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bathrooms</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <div className="relative">
+                            <SelectTrigger className="pl-10">
+                              <SelectValue placeholder="Select bathrooms" />
+                            </SelectTrigger>
+                            <Home className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </FormControl>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5].map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              {num} {num === 1 ? "Bathroom" : "Bathrooms"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Number of bathrooms</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+                {isLoading ? "Calculating..." : "Predict Price"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      {prediction && <PriceResults prediction={prediction} locations={locations} />}
+    </div>
+  )
+}
